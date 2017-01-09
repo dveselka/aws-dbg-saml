@@ -20,12 +20,18 @@ import shutil
 
 debug = False
 
+fname    = 'credentials'                                # AWS Credentials File
+homedir  = expanduser('~') + '/aws-dbg-saml/'           # Working Directory
+awsdir   = expanduser('~') + '/.aws/'                   # AWS Directory
+
+def check_credentials_file():
+    if os.path.isfile(awsdir+fname) == False:
+        print "File doesn't exist.",
+    else:
+        print "Credentials file in place.",
+        return True
+
 def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_session_token):
-
-        fname    = 'credentials'                                # AWS Credentials File
-        homedir  = expanduser('~') + '/aws-dbg-saml/'           # Working Directory
-        awsdir   = expanduser('~') + '/.aws/'                   # AWS Directory
-
         config = ConfigObj()
 
         open(fname, 'a').close()
@@ -50,7 +56,7 @@ def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_sessio
         except shutil.Error as ex:
             print "Copy failed! Reason: " + str(ex)
 
-        print '\rDone, credentials file updated..'
+        print '\nDone, credentials file created/refreshed.'
         exit()
 
 
@@ -268,12 +274,15 @@ for fun in [auth_cached,auth_live]:
         print 'Expiration (in UTC):    ' + str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S%z'))
         print 'Until expiration:    ' + str(diff)
         print ''
-        if diff.total_seconds() <= 300 or diff.total_seconds() >= 3590 :
+
+        if diff.total_seconds() <= 300 or diff.total_seconds() >= 3590:
             print 'Updating credentials file... '
             update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         else:
-            print 'No need to update credentials file, remains ' + str(diff.total_seconds()) + ' seconds'
-
+            if check_credentials_file() == True:
+                print 'No need to update.\nRemains ' + str(diff.total_seconds()) + ' seconds.'
+            else:
+                update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         break
 
     except Exception as e:
