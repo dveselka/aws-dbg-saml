@@ -14,8 +14,51 @@ import dateutil
 import pickle
 import os
 import getpass
+from os.path import expanduser
+from configobj import ConfigObj
+import shutil
 
 debug = False
+
+fname    = 'credentials'                                # AWS Credentials File
+homedir  = expanduser('~') + '/aws-dbg-saml/'           # Working Directory
+awsdir   = expanduser('~') + '/.aws/'                   # AWS Directory
+
+def check_credentials_file():
+    if os.path.isfile(awsdir+fname) == False:
+        print "File doesn't exist.",
+    else:
+        print "Credentials file in place.",
+        return True
+
+def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_session_token):
+        config = ConfigObj()
+
+        open(fname, 'a').close()
+
+        config['default'] = {}
+        config['default']['aws_access_key_id'] = aws_access_key_id
+        config['default']['aws_secret_access_key'] = aws_secret_access_key
+        config['default']['aws_session_token'] = aws_session_token
+
+        try:
+            with open(fname, 'wb') as configfile:
+                config.write(configfile)
+        except IOError as exc:
+            print "Error " + str(exc)
+
+        # Change file permissions
+        os.chmod(fname, int('0600',0))
+
+        # Move credentials to proper dir
+        try:
+            os.rename(homedir+fname, awsdir+fname)
+        except shutil.Error as ex:
+            print "Copy failed! Reason: " + str(ex)
+
+        print '\nDone, credentials file created/refreshed.'
+        exit()
+
 
 def auth_cached():
     try:
@@ -209,7 +252,8 @@ def auth_live():
 
 # Iterate over credentials functions
 ret_code = 1
-for fun in [auth_cached, auth_live]:
+
+for fun in [auth_cached,auth_live]:
     credentials = fun()
 
     try:
@@ -220,7 +264,6 @@ for fun in [auth_cached, auth_live]:
         exp = credentials['Expiration'].replace(tzinfo=None)
         now = datetime.datetime.now()
         diff = exp - now + datetime.timedelta(hours=1)
-
         if diff.total_seconds() < 0:
             continue
 
@@ -232,9 +275,16 @@ for fun in [auth_cached, auth_live]:
         print 'Until expiration:    ' + str(diff)
         print ''
 
-        print 'export AWS_ACCESS_KEY_ID=\'' + str(aws_access_key_id[0]) + '\' && export AWS_SECRET_ACCESS_KEY=\'' + str(aws_secret_access_key) + '\' && export AWS_SESSION_TOKEN=\'' + str(aws_session_token) + '\' && export AWS_SECURITY_TOKEN=\'' + str(aws_session_token) + '\''
-
+        if diff.total_seconds() <= 300 or diff.total_seconds() >= 3590:
+            print 'Updating credentials file... '
+            update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
+        else:
+            if check_credentials_file() == True:
+                print 'No need to update.\nRemains ' + str(diff.total_seconds()) + ' seconds.'
+            else:
+                update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         break
+
     except Exception as e:
         continue
 
