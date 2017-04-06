@@ -20,49 +20,49 @@ import shutil
 
 debug = False
 
-fname    = 'credentials'                                # AWS Credentials File
-homedir  = expanduser('~') + '/aws-dbg-saml/'           # Working Directory
-awsdir   = expanduser('~') + '/.aws/'                   # AWS Directory
+awsdir = os.path.join(expanduser('~'), '.aws')                          # AWS Directory
+credentials_file = os.path.join(awsdir, 'credentials')                  # AWS Credentials File
+auth_cache_file = os.path.join(expanduser('~'), '.assumedRole.pkl')     # AWS Credentials cache file
+
 
 def check_credentials_file():
-    if os.path.isfile(awsdir+fname) == False:
-        print "File doesn't exist.",
+    if not os.path.isfile(credentials_file):
+        print "Credentials file: {0} doesn't exist.".format(credentials_file),
+        return False
     else:
-        print "Credentials file in place.",
+        print "Credentials file: {0} in place.".format(credentials_file),
         return True
 
+
 def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_session_token):
+
         config = ConfigObj()
-
-        open(fname, 'a').close()
-
         config['default'] = {}
         config['default']['aws_access_key_id'] = aws_access_key_id
         config['default']['aws_secret_access_key'] = aws_secret_access_key
         config['default']['aws_session_token'] = aws_session_token
 
+        if not os.path.exists(awsdir):
+            os.makedirs(awsdir)
+
         try:
-            with open(fname, 'wb') as configfile:
+            with open(credentials_file, 'wb') as configfile:
                 config.write(configfile)
         except IOError as exc:
-            print "Error " + str(exc)
+            import traceback
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
 
         # Change file permissions
-        os.chmod(fname, int('0600',0))
+        os.chmod(credentials_file, int('0600', 0))
 
-        # Move credentials to proper dir
-        try:
-            os.rename(homedir+fname, awsdir+fname)
-        except shutil.Error as ex:
-            print "Copy failed! Reason: " + str(ex)
-
-        print '\nDone, credentials file created/refreshed.'
+        print '\nDone, credentials file: {0} created/refreshed.'.format(credentials_file),
         exit()
 
 
 def auth_cached():
     try:
-        with open('assumedRole.pkl', 'rb') as input:
+        with open(auth_cache_file, 'rb') as input:
             assumedRoleObject = pickle.load(input)
 
         credentials = assumedRoleObject['Credentials']
@@ -244,19 +244,22 @@ def auth_live():
         SAMLAssertion=assertion
     )
 
-    with open('assumedRole.pkl', 'wb') as output:
+    with open(auth_cache_file, 'wb') as output:
         pickle.dump(assumedRoleObject, output, pickle.HIGHEST_PROTOCOL)
 
     credentials = assumedRoleObject['Credentials']
     return credentials
 
 # Iterate over credentials functions
-ret_code = 1
+ret_code = 0
 
-for fun in [auth_cached,auth_live]:
+for fun in [auth_cached, auth_live]:
     credentials = fun()
 
     try:
+        # skip in case cache is empty
+        if not credentials:
+            continue
         aws_access_key_id = credentials['AccessKeyId'],
         aws_secret_access_key = credentials['SecretAccessKey']
         aws_session_token = credentials['SessionToken']
@@ -264,8 +267,8 @@ for fun in [auth_cached,auth_live]:
         exp = credentials['Expiration'].replace(tzinfo=None)
         now = datetime.datetime.now()
         diff = exp - now + datetime.timedelta(hours=1)
-        if diff.total_seconds() < 0:
-            continue
+        #if diff.total_seconds() < 0:
+        #    continue
 
         print 'Key ID:        ' + str(aws_access_key_id[0])
         print 'Access Key:    ' + str(aws_secret_access_key)
@@ -282,10 +285,13 @@ for fun in [auth_cached,auth_live]:
             if check_credentials_file() == True:
                 print 'No need to update.\nRemains ' + str(diff.total_seconds()) + ' seconds.'
             else:
+                print "will update credentials file:", 
                 update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         break
 
     except Exception as e:
-        continue
+        import traceback
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
 
 sys.exit(ret_code)
