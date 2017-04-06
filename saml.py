@@ -71,13 +71,14 @@ def auth_cached():
 
     return credentials
 
+
 def auth_live():
     url = 'https://amplis.deutsche-boerse.com/auth/json/authenticate'
     payload = {'realm': '/internet', 'spEntityID': 'urn:amazon:webservices'}
     headers = {'Content-Type': 'application/json'}
 
     try:
-        r1 = requests.post(url, params = payload, headers = headers)
+        r1 = requests.post(url, params=payload, headers=headers)
         r1j = r1.json()
         if debug:
             print 'Url:         ' + r1.url
@@ -102,8 +103,8 @@ def auth_live():
         return None
 
     try:
-        r2 = requests.post(url, params = payload, headers = headers, data = json.dumps(r1j))
-        r2j=r2.json()
+        r2 = requests.post(url, params=payload, headers=headers, data=json.dumps(r1j))
+        r2j = r2.json()
         if debug:
             print 'Url:        ' + r2.url
             print 'Status Code:' + str(r2.status_code)
@@ -128,10 +129,10 @@ def auth_live():
     if debug: # some interesting debug code
         url = 'https://amplis.deutsche-boerse.com/auth/json/users'
         payload = {'realm': '/internet', '_action': 'idFromSession'}
-        headers = {'Content-Type': 'application/json', 'Cookie': 'es='+token}
+        headers = {'Content-Type': 'application/json', 'Cookie': 'es=' + token}
 
         try:
-            r3 = requests.post(url, params = payload, headers = headers)
+            r3 = requests.post(url, params=payload, headers=headers)
             r3j = r3.json()
             print 'Url:         ' + r3.url
             print 'Status Code: ' + str(r3.status_code)
@@ -150,9 +151,9 @@ def auth_live():
 
         url = 'https://amplis.deutsche-boerse.com/auth/json/users/' + id
         payload = {'realm': '/internet'}
-        headers = {'Content-Type': 'application/json', 'Cookie': 'es='+token}
+        headers = {'Content-Type': 'application/json', 'Cookie': 'es=' + token}
 
-        r4 = requests.get(url, params = payload, headers = headers)
+        r4 = requests.get(url, params=payload, headers=headers)
         r4j = r4.json()
         print 'Url:         ' + r4.url
         print 'Status Code: ' + str(r4.status_code)
@@ -163,12 +164,12 @@ def auth_live():
 
     url = 'https://amplis.deutsche-boerse.com/auth/saml2/jsp/idpSSOInit.jsp'
     payload = {'metaAlias': '/internet/idp', 'spEntityID': 'urn:amazon:webservices', 'redirected': 'true'}
-    headers = {'Cookie': 'es='+token,
+    headers = {'Cookie': 'es=' + token,
                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                'Accept-Encoding': 'gzip, deflate, br',
                'Accept-Language': 'de,en-US;q=0.7,en;q=0.3'}
 
-    r5 = requests.get(url, params = payload, headers = headers)
+    r5 = requests.get(url, params=payload, headers=headers)
     if debug:
         print 'Url:         ' + r5.url
         print 'Status Code: ' + str(r5.status_code)
@@ -241,8 +242,7 @@ def auth_live():
     assumedRoleObject = client.assume_role_with_saml(
         RoleArn=role_arn,
         PrincipalArn=principal_arn,
-        SAMLAssertion=assertion
-    )
+        SAMLAssertion=assertion)
 
     with open(auth_cache_file, 'wb') as output:
         pickle.dump(assumedRoleObject, output, pickle.HIGHEST_PROTOCOL)
@@ -285,7 +285,7 @@ for fun in [auth_cached, auth_live]:
             if check_credentials_file() == True:
                 print 'No need to update.\nRemains ' + str(diff.total_seconds()) + ' seconds.'
             else:
-                print "will update credentials file:", 
+                print "will update credentials file:",
                 update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         break
 
