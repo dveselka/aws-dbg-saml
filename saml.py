@@ -20,49 +20,49 @@ import shutil
 
 debug = False
 
-fname    = 'credentials'                                # AWS Credentials File
-homedir  = expanduser('~') + '/aws-dbg-saml/'           # Working Directory
-awsdir   = expanduser('~') + '/.aws/'                   # AWS Directory
+awsdir = os.path.join(expanduser('~'), '.aws')                          # AWS Directory
+credentials_file = os.path.join(awsdir, 'credentials')                  # AWS Credentials File
+auth_cache_file = os.path.join(expanduser('~'), '.assumedRole.pkl')     # AWS Credentials cache file
+
 
 def check_credentials_file():
-    if os.path.isfile(awsdir+fname) == False:
-        print "File doesn't exist.",
+    if not os.path.isfile(credentials_file):
+        print "Credentials file: {0} doesn't exist.".format(credentials_file),
+        return False
     else:
-        print "Credentials file in place.",
+        print "Credentials file: {0} in place.".format(credentials_file),
         return True
 
+
 def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_session_token):
+
         config = ConfigObj()
-
-        open(fname, 'a').close()
-
         config['default'] = {}
         config['default']['aws_access_key_id'] = aws_access_key_id
         config['default']['aws_secret_access_key'] = aws_secret_access_key
         config['default']['aws_session_token'] = aws_session_token
 
+        if not os.path.exists(awsdir):
+            os.makedirs(awsdir)
+
         try:
-            with open(fname, 'wb') as configfile:
+            with open(credentials_file, 'wb') as configfile:
                 config.write(configfile)
         except IOError as exc:
-            print "Error " + str(exc)
+            import traceback
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
 
         # Change file permissions
-        os.chmod(fname, int('0600',0))
+        os.chmod(credentials_file, int('0600', 0))
 
-        # Move credentials to proper dir
-        try:
-            os.rename(homedir+fname, awsdir+fname)
-        except shutil.Error as ex:
-            print "Copy failed! Reason: " + str(ex)
-
-        print '\nDone, credentials file created/refreshed.'
+        print '\nDone, credentials file: {0} created/refreshed.'.format(credentials_file),
         exit()
 
 
 def auth_cached():
     try:
-        with open('assumedRole.pkl', 'rb') as input:
+        with open(auth_cache_file, 'rb') as input:
             assumedRoleObject = pickle.load(input)
 
         credentials = assumedRoleObject['Credentials']
@@ -71,13 +71,14 @@ def auth_cached():
 
     return credentials
 
+
 def auth_live():
     url = 'https://amplis.deutsche-boerse.com/auth/json/authenticate'
     payload = {'realm': '/internet', 'spEntityID': 'urn:amazon:webservices'}
     headers = {'Content-Type': 'application/json'}
 
     try:
-        r1 = requests.post(url, params = payload, headers = headers)
+        r1 = requests.post(url, params=payload, headers=headers)
         r1j = r1.json()
         if debug:
             print 'Url:         ' + r1.url
@@ -102,8 +103,8 @@ def auth_live():
         return None
 
     try:
-        r2 = requests.post(url, params = payload, headers = headers, data = json.dumps(r1j))
-        r2j=r2.json()
+        r2 = requests.post(url, params=payload, headers=headers, data=json.dumps(r1j))
+        r2j = r2.json()
         if debug:
             print 'Url:        ' + r2.url
             print 'Status Code:' + str(r2.status_code)
@@ -128,10 +129,10 @@ def auth_live():
     if debug: # some interesting debug code
         url = 'https://amplis.deutsche-boerse.com/auth/json/users'
         payload = {'realm': '/internet', '_action': 'idFromSession'}
-        headers = {'Content-Type': 'application/json', 'Cookie': 'es='+token}
+        headers = {'Content-Type': 'application/json', 'Cookie': 'es=' + token}
 
         try:
-            r3 = requests.post(url, params = payload, headers = headers)
+            r3 = requests.post(url, params=payload, headers=headers)
             r3j = r3.json()
             print 'Url:         ' + r3.url
             print 'Status Code: ' + str(r3.status_code)
@@ -150,9 +151,9 @@ def auth_live():
 
         url = 'https://amplis.deutsche-boerse.com/auth/json/users/' + id
         payload = {'realm': '/internet'}
-        headers = {'Content-Type': 'application/json', 'Cookie': 'es='+token}
+        headers = {'Content-Type': 'application/json', 'Cookie': 'es=' + token}
 
-        r4 = requests.get(url, params = payload, headers = headers)
+        r4 = requests.get(url, params=payload, headers=headers)
         r4j = r4.json()
         print 'Url:         ' + r4.url
         print 'Status Code: ' + str(r4.status_code)
@@ -163,12 +164,12 @@ def auth_live():
 
     url = 'https://amplis.deutsche-boerse.com/auth/saml2/jsp/idpSSOInit.jsp'
     payload = {'metaAlias': '/internet/idp', 'spEntityID': 'urn:amazon:webservices', 'redirected': 'true'}
-    headers = {'Cookie': 'es='+token,
+    headers = {'Cookie': 'es=' + token,
                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                'Accept-Encoding': 'gzip, deflate, br',
                'Accept-Language': 'de,en-US;q=0.7,en;q=0.3'}
 
-    r5 = requests.get(url, params = payload, headers = headers)
+    r5 = requests.get(url, params=payload, headers=headers)
     if debug:
         print 'Url:         ' + r5.url
         print 'Status Code: ' + str(r5.status_code)
@@ -241,22 +242,24 @@ def auth_live():
     assumedRoleObject = client.assume_role_with_saml(
         RoleArn=role_arn,
         PrincipalArn=principal_arn,
-        SAMLAssertion=assertion
-    )
+        SAMLAssertion=assertion)
 
-    with open('assumedRole.pkl', 'wb') as output:
+    with open(auth_cache_file, 'wb') as output:
         pickle.dump(assumedRoleObject, output, pickle.HIGHEST_PROTOCOL)
 
     credentials = assumedRoleObject['Credentials']
     return credentials
 
 # Iterate over credentials functions
-ret_code = 1
+ret_code = 0
 
-for fun in [auth_cached,auth_live]:
+for fun in [auth_cached, auth_live]:
     credentials = fun()
 
     try:
+        # skip in case cache is empty
+        if not credentials:
+            continue
         aws_access_key_id = credentials['AccessKeyId'],
         aws_secret_access_key = credentials['SecretAccessKey']
         aws_session_token = credentials['SessionToken']
@@ -264,8 +267,8 @@ for fun in [auth_cached,auth_live]:
         exp = credentials['Expiration'].replace(tzinfo=None)
         now = datetime.datetime.now()
         diff = exp - now + datetime.timedelta(hours=1)
-        if diff.total_seconds() < 0:
-            continue
+        #if diff.total_seconds() < 0:
+        #    continue
 
         print 'Key ID:        ' + str(aws_access_key_id[0])
         print 'Access Key:    ' + str(aws_secret_access_key)
@@ -282,10 +285,13 @@ for fun in [auth_cached,auth_live]:
             if check_credentials_file() == True:
                 print 'No need to update.\nRemains ' + str(diff.total_seconds()) + ' seconds.'
             else:
+                print "will update credentials file:",
                 update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         break
 
     except Exception as e:
-        continue
+        import traceback
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
 
 sys.exit(ret_code)
