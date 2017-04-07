@@ -279,20 +279,10 @@ for fun in [auth_cached, auth_live]:
 
         print 'Key ID:         ' + str(aws_access_key_id[0])
         print 'Access Key:     ' + str(aws_secret_access_key)
-        print 'Session Token:  ' + str(aws_session_token)
+        print 'Security/Session Token:  ' + str(aws_session_token)
         print 'Expiration:     ' + str(credentials['Expiration'].astimezone(berlin).strftime('%Y-%m-%d %H:%M:%S%z'))
         print 'Expiration(UTC):' + str(credentials['Expiration'].strftime('%Y-%m-%d %H:%M:%S%z'))
         print 'Time till expiration: ' + str(diff.seconds/60) + ' min'
-
-        diff = exp - now + datetime.timedelta(hours=1)
-
-        print 'Key ID:        ' + str(aws_access_key_id[0])
-        print 'Access Key:    ' + str(aws_secret_access_key)
-        print 'Session Token: ' + str(aws_session_token)
-        print 'Expiration:    ' + str(credentials['Expiration'].replace(tzinfo=None))
-        print 'Expiration (in UTC):    ' + str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S%z'))
-        print 'Until expiration:    ' + str(diff)
-        print ''
 
         if diff.total_seconds() >= 3590:          # true if new credentials are created
             print 'Updating credentials file... '
