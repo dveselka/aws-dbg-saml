@@ -17,6 +17,8 @@ import getpass
 from os.path import expanduser
 from configobj import ConfigObj
 import shutil
+from pytz import timezone
+import pytz
 
 debug = False
 
@@ -36,28 +38,29 @@ def check_credentials_file():
 
 def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_session_token):
 
-        config = ConfigObj()
-        config['default'] = {}
-        config['default']['aws_access_key_id'] = aws_access_key_id
-        config['default']['aws_secret_access_key'] = aws_secret_access_key
-        config['default']['aws_session_token'] = aws_session_token
+    config = ConfigObj()
+    config['default'] = {}
+    config['default']['aws_access_key_id'] = aws_access_key_id
+    config['default']['aws_secret_access_key'] = aws_secret_access_key
+    config['default']['aws_session_token'] = aws_session_token
+    config['default']['aws_security_token'] = aws_session_token     # for compatibility with ansible ec2.py inventory script
 
-        if not os.path.exists(awsdir):
-            os.makedirs(awsdir)
+    if not os.path.exists(awsdir):
+        os.makedirs(awsdir)
 
-        try:
-            with open(credentials_file, 'wb') as configfile:
-                config.write(configfile)
-        except IOError as exc:
-            import traceback
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
+    try:
+        with open(credentials_file, 'wb') as configfile:
+            config.write(configfile)
+    except IOError as exc:
+        import traceback
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
 
-        # Change file permissions
-        os.chmod(credentials_file, int('0600', 0))
+    # Change file permissions
+    os.chmod(credentials_file, int('0600', 0))
 
-        print '\nDone, credentials file: {0} created/refreshed.'.format(credentials_file),
-        exit()
+    print '\nDone, credentials file: {0} created/refreshed.'.format(credentials_file),
+    exit()
 
 
 def auth_cached():
@@ -260,15 +263,28 @@ for fun in [auth_cached, auth_live]:
         # skip in case cache is empty
         if not credentials:
             continue
+        utc    = pytz.utc
+        berlin = timezone('Europe/Berlin')
         aws_access_key_id = credentials['AccessKeyId'],
         aws_secret_access_key = credentials['SecretAccessKey']
         aws_session_token = credentials['SessionToken']
 
-        exp = credentials['Expiration'].replace(tzinfo=None)
-        now = datetime.datetime.now()
+        exp = credentials['Expiration']  # offset aware time
+        now = utc.localize(datetime.datetime.utcnow())   # now is utcnow offset aware
+        diff = exp - now
+
+        if diff.total_seconds() < 300:
+            print "Credential update necessary"
+            continue    # update (auth_live) when credentials will timout in 5 minutes
+
+        print 'Key ID:         ' + str(aws_access_key_id[0])
+        print 'Access Key:     ' + str(aws_secret_access_key)
+        print 'Session Token:  ' + str(aws_session_token)
+        print 'Expiration:     ' + str(credentials['Expiration'].astimezone(berlin).strftime('%Y-%m-%d %H:%M:%S%z'))
+        print 'Expiration(UTC):' + str(credentials['Expiration'].strftime('%Y-%m-%d %H:%M:%S%z'))
+        print 'Time till expiration: ' + str(diff.seconds/60) + ' min'
+
         diff = exp - now + datetime.timedelta(hours=1)
-        #if diff.total_seconds() < 0:
-        #    continue
 
         print 'Key ID:        ' + str(aws_access_key_id[0])
         print 'Access Key:    ' + str(aws_secret_access_key)
@@ -278,7 +294,7 @@ for fun in [auth_cached, auth_live]:
         print 'Until expiration:    ' + str(diff)
         print ''
 
-        if diff.total_seconds() <= 300 or diff.total_seconds() >= 3590:
+        if diff.total_seconds() >= 3590:          # true if new credentials are created
             print 'Updating credentials file... '
             update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         else:
