@@ -17,12 +17,11 @@ import getpass
 from os.path import expanduser
 from configobj import ConfigObj
 import shutil
-from pytz import timezone
-import pytz
 
 debug = False
 
 fname    = 'credentials'                                # AWS Credentials File
+homedir  = expanduser('~') + '/aws-dbg-saml/'           # Working Directory
 awsdir   = expanduser('~') + '/.aws/'                   # AWS Directory
 
 def check_credentials_file():
@@ -41,7 +40,6 @@ def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_sessio
         config['default']['aws_access_key_id'] = aws_access_key_id
         config['default']['aws_secret_access_key'] = aws_secret_access_key
         config['default']['aws_session_token'] = aws_session_token
-        config['default']['aws_security_token'] = aws_session_token    # for compatibility with ansible ec2.py inventory script
 
         try:
             with open(fname, 'wb') as configfile:
@@ -54,8 +52,8 @@ def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_sessio
 
         # Move credentials to proper dir
         try:
-            os.rename(fname, awsdir+fname)
-        except Excetping as ex:
+            os.rename(homedir+fname, awsdir+fname)
+        except shutil.Error as ex:
             print "Copy failed! Reason: " + str(ex)
 
         print '\nDone, credentials file created/refreshed.'
@@ -259,28 +257,25 @@ for fun in [auth_cached,auth_live]:
     credentials = fun()
 
     try:
-        utc    = pytz.utc
-        berlin = timezone('Europe/Berlin')
         aws_access_key_id = credentials['AccessKeyId'],
         aws_secret_access_key = credentials['SecretAccessKey']
         aws_session_token = credentials['SessionToken']
 
-        exp  =  credentials['Expiration']  # offset aware time       
-        now  =  utc.localize(datetime.datetime.utcnow())   # now is utcnow offset aware
-        diff = exp - now 
-        if diff.total_seconds() < 300:
-                print "Credential update neseccary"
-                continue    # update (auth_live) when credentials will timout in 5 minutes
+        exp = credentials['Expiration'].replace(tzinfo=None)
+        now = datetime.datetime.now()
+        diff = exp - now + datetime.timedelta(hours=1)
+        if diff.total_seconds() < 0:
+            continue
 
-        print 'Key ID:         ' + str(aws_access_key_id[0])
-        print 'Access Key:     ' + str(aws_secret_access_key)
-        print 'Session Token:  ' + str(aws_session_token)
-        print 'Expiration:     ' + str(credentials['Expiration'].astimezone(berlin).strftime('%Y-%m-%d %H:%M:%S%z'))
-        print 'Expiration(UTC):' + str(credentials['Expiration'].strftime('%Y-%m-%d %H:%M:%S%z')) # 
-        print 'Time till expiration: ' + str(diff.seconds/60) + ' min'
+        print 'Key ID:        ' + str(aws_access_key_id[0])
+        print 'Access Key:    ' + str(aws_secret_access_key)
+        print 'Session Token: ' + str(aws_session_token)
+        print 'Expiration:    ' + str(credentials['Expiration'].replace(tzinfo=None))
+        print 'Expiration (in UTC):    ' + str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S%z'))
+        print 'Until expiration:    ' + str(diff)
         print ''
 
-        if diff.total_seconds() >= 3590:          # true if new credentials are created
+        if diff.total_seconds() <= 300 or diff.total_seconds() >= 3590:
             print 'Updating credentials file... '
             update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         else:
@@ -291,7 +286,6 @@ for fun in [auth_cached,auth_live]:
         break
 
     except Exception as e:
-        print "\nprocessing exception:" + str(e)
         continue
 
 sys.exit(ret_code)
