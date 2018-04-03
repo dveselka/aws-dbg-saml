@@ -3,22 +3,22 @@
 import requests
 import json
 import boto3
-import botocore
-from botocore.client import Config
 import sys
 from bs4 import BeautifulSoup
 import base64
 import xml.etree.ElementTree as ET
 import datetime
-import dateutil
 import pickle
 import os
 import getpass
 from os.path import expanduser
 from configobj import ConfigObj
-import shutil
 from pytz import timezone
 import pytz
+try:
+   input = raw_input
+except NameError:
+   pass
 
 debug = False
 
@@ -29,10 +29,10 @@ auth_cache_file = os.path.join(expanduser('~'), '.assumedRole.pkl')     # AWS Cr
 
 def check_credentials_file():
     if not os.path.isfile(credentials_file):
-        print "Credentials file: {0} doesn't exist.".format(credentials_file),
+        print("Credentials file: %s doesn't exist." % credentials_file)
         return False
     else:
-        print "Credentials file: {0} in place.".format(credentials_file),
+        print("Credentials file: %s in place." % credentials_file)
         return True
 
 
@@ -51,15 +51,15 @@ def update_credentials_file(aws_access_key_id, aws_secret_access_key, aws_sessio
     try:
         with open(credentials_file, 'wb') as configfile:
             config.write(configfile)
-    except IOError as exc:
+    except IOError:
         import traceback
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
 
     # Change file permissions
-    os.chmod(credentials_file, int('0600', 0))
+    os.chmod(credentials_file, int('0600', 8))
 
-    print '\nDone, credentials file: {0} created/refreshed.'.format(credentials_file),
+    print("\nDone, credentials file: %s created/refreshed." % credentials_file)
     exit()
 
 
@@ -84,50 +84,50 @@ def auth_live():
         r1 = requests.post(url, params=payload, headers=headers)
         r1j = r1.json()
         if debug:
-            print 'Url:         ' + r1.url
-            print 'Status Code: ' + str(r1.status_code)
-            print 'Reason:      ' + r1.reason
+            print('Url:         ' + r1.url)
+            print('Status Code: ' + str(r1.status_code))
+            print('Reason:      ' + r1.reason)
             #print 'Text:        ' + r1.text
-            print 'Headers:     ' + str(r1.headers)
-            print 'Text:'
-            print json.dumps(r1j, indent=2)
+            print('Headers:     ' + str(r1.headers))
+            print('Text:')
+            print(json.dumps(r1j, indent=2))
     except:
-        print 'Request failed, check network connection!'
+        print('Request failed, check network connection!')
         return None
 
     try:
-        r1j['callbacks'][0]['input'][0]['value'] = raw_input('Username: ')     # should locate 'IDToken1'
-        r1j['callbacks'][1]['input'][0]['value'] = raw_input('MFA token: ')      # should locate 'IDToken2'
+        r1j['callbacks'][0]['input'][0]['value'] = input('Username: ')     # should locate 'IDToken1'
+        r1j['callbacks'][1]['input'][0]['value'] = input('MFA token: ')      # should locate 'IDToken2'
         r1j['callbacks'][2]['input'][0]['value'] = getpass.getpass('Password: ')   # should locate 'IDToken3'
         if debug:
-            print json.dumps(r1j, indent=2)
-    except:
-        print 'No valid form to fill returned'
+            print(json.dumps(r1j, indent=2))
+    except Exception as e:
+        print('No valid form to fill returned - ' + str(e))
         return None
 
     try:
         r2 = requests.post(url, params=payload, headers=headers, data=json.dumps(r1j))
         r2j = r2.json()
         if debug:
-            print 'Url:        ' + r2.url
-            print 'Status Code:' + str(r2.status_code)
-            print 'Reason:     ' + r2.reason
+            print('Url:        ' + r2.url)
+            print('Status Code:' + str(r2.status_code))
+            print('Reason:     ' + r2.reason)
             #print 'Text:       ' + r2.text
-            print 'Headers:    ' + str(r2.headers)
-            print 'Text:'
-            print json.dumps(r2j, indent=2)
+            print('Headers:    ' + str(r2.headers))
+            print('Text:')
+            print(json.dumps(r2j, indent=2))
     except:
-        print 'Request failed, check network connection!'
+        print('Request failed, check network connection!')
         return None
 
     try:
         token = r2j['tokenId']
     except:
-        print 'Authentication failed!'
+        print('Authentication failed!')
         return None
 
     if debug:
-        print 'Extracted token: ' + token
+        print('Extracted token: ' + token)
 
     if debug: # some interesting debug code
         url = 'https://amplis.deutsche-boerse.com/auth/json/users'
@@ -137,20 +137,20 @@ def auth_live():
         try:
             r3 = requests.post(url, params=payload, headers=headers)
             r3j = r3.json()
-            print 'Url:         ' + r3.url
-            print 'Status Code: ' + str(r3.status_code)
-            print 'Reason:      ' + r3.reason
+            print('Url:         ' + r3.url)
+            print('Status Code: ' + str(r3.status_code))
+            print('Reason:      ' + r3.reason)
             #print 'Text:        ' + r3.text
-            print 'Headers:     ' + str(r3.headers)
-            print 'Text:'
-            print json.dumps(r3j, indent=2)
+            print('Headers:     ' + str(r3.headers))
+            print('Text:')
+            print(json.dumps(r3j, indent=2))
         except:
-            print 'Request failed, check network connection!'
+            print('Request failed, check network connection!')
             return None
 
         id = r3j['id']
         if debug:
-            print 'Extracted id: ' + id
+            print('Extracted id: ' + id)
 
         url = 'https://amplis.deutsche-boerse.com/auth/json/users/' + id
         payload = {'realm': '/internet'}
@@ -158,12 +158,12 @@ def auth_live():
 
         r4 = requests.get(url, params=payload, headers=headers)
         r4j = r4.json()
-        print 'Url:         ' + r4.url
-        print 'Status Code: ' + str(r4.status_code)
-        print 'Reason:      ' + r4.reason
+        print('Url:         ' + r4.url)
+        print('Status Code: ' + str(r4.status_code))
+        print('Reason:      ' + r4.reason)
         #print 'Text:        ' + r4.text
-        print 'Headers:     ' + str(r4.headers)
-        print json.dumps(r4j, indent=2)
+        print('Headers:     ' + str(r4.headers))
+        print(json.dumps(r4j, indent=2))
 
     url = 'https://amplis.deutsche-boerse.com/auth/saml2/jsp/idpSSOInit.jsp'
     payload = {'metaAlias': '/internet/idp', 'spEntityID': 'urn:amazon:webservices', 'redirected': 'true'}
@@ -174,13 +174,13 @@ def auth_live():
 
     r5 = requests.get(url, params=payload, headers=headers)
     if debug:
-        print 'Url:         ' + r5.url
-        print 'Status Code: ' + str(r5.status_code)
-        print 'Reason:      ' + r5.reason
-        print 'Text:        ' + r5.text
-        print 'Headers:     ' + str(r5.headers)
+        print('Url:         ' + r5.url)
+        print('Status Code: ' + str(r5.status_code))
+        print('Reason:      ' + r5.reason)
+        print('Text:        ' + r5.text)
+        print('Headers:     ' + str(r5.headers))
 
-    soup = BeautifulSoup(r5.text.decode('utf8'), 'html.parser')
+    soup = BeautifulSoup(r5.text, 'html.parser')
     assertion = ''
 
     # Look for the SAMLResponse attribute of the input tag (determined by
@@ -216,19 +216,19 @@ def auth_live():
     # If I have more than one role, ask the user which one they want,
     # otherwise just proceed
     if debug:
-        print "Number of awsroles found: " + str(len(awsroles))
+        print("Number of awsroles found: " + str(len(awsroles)))
     if len(awsroles) > 1:
         i = 0
-        print "Please choose the role you would like to assume:"
+        print("Please choose the role you would like to assume:")
         for awsrole in awsroles:
-            print '[', i, ']: ', awsrole.split(',')[0]
+            print('[' +  str(i) + ']: ' + awsrole.split(',')[0])
             i += 1
-        print "Selection: ",
-        selectedroleindex = raw_input()
+        print("Selection: ")
+        selectedroleindex = input()
 
         # Basic sanity check of input
         if int(selectedroleindex) > (len(awsroles) - 1):
-            print 'You selected an invalid role index, please try again'
+            print('You selected an invalid role index, please try again')
             sys.exit(0)
 
         role_arn = awsroles[int(selectedroleindex)].split(',')[0]
@@ -238,8 +238,8 @@ def auth_live():
         principal_arn = awsroles[0].split(',')[1]
 
     if debug:
-        print "Role ARN:      " + role_arn
-        print "Principal ARN: " + principal_arn
+        print("Role ARN:      " + role_arn)
+        print("Principal ARN: " + principal_arn)
 
     client = boto3.client('sts')
     assumedRoleObject = client.assume_role_with_saml(
@@ -274,24 +274,24 @@ for fun in [auth_cached, auth_live]:
         diff = exp - now
 
         if diff.total_seconds() < 300:
-            print "Credential update necessary"
+            print("Credential update necessary")
             continue    # update (auth_live) when credentials will timout in 5 minutes
 
-        print 'Key ID:         ' + str(aws_access_key_id[0])
-        print 'Access Key:     ' + str(aws_secret_access_key)
-        print 'Security/Session Token:  ' + str(aws_session_token)
-        print 'Expiration:     ' + str(credentials['Expiration'].astimezone(berlin).strftime('%Y-%m-%d %H:%M:%S%z'))
-        print 'Expiration(UTC):' + str(credentials['Expiration'].strftime('%Y-%m-%d %H:%M:%S%z'))
-        print 'Time till expiration: ' + str(diff.seconds/60) + ' min'
+        print('Key ID:         ' + str(aws_access_key_id[0]))
+        print('Access Key:     ' + str(aws_secret_access_key))
+        print('Security/Session Token:  ' + str(aws_session_token))
+        print('Expiration:     ' + str(credentials['Expiration'].astimezone(berlin).strftime('%Y-%m-%d %H:%M:%S%z')))
+        print('Expiration(UTC):' + str(credentials['Expiration'].strftime('%Y-%m-%d %H:%M:%S%z')))
+        print('Time till expiration: ' + str(diff.seconds/60) + ' min')
 
         if diff.total_seconds() >= 3590:          # true if new credentials are created
-            print 'Updating credentials file... '
+            print('Updating credentials file... ')
             update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         else:
             if check_credentials_file() == True:
-                print 'No need to update.\nRemains ' + str(diff.total_seconds()) + ' seconds.'
+                print('No need to update.\nRemains ' + str(diff.total_seconds()) + ' seconds.')
             else:
-                print "will update credentials file:",
+                print("will update credentials file:")
                 update_credentials_file(aws_access_key_id[0], aws_secret_access_key, aws_session_token)
         break
 
