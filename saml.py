@@ -25,7 +25,7 @@ debug = False
 awsdir = os.path.join(expanduser('~'), '.aws')                          # AWS Directory
 credentials_file = os.path.join(awsdir, 'credentials')                  # AWS Credentials File
 auth_cache_file = os.path.join(expanduser('~'), '.assumedRole.pkl')     # AWS Credentials cache file
-
+config_user_file = os.path.join(expanduser('~'), '.aws', 'user')
 
 def check_credentials_file():
     if not os.path.isfile(credentials_file):
@@ -96,7 +96,13 @@ def auth_live():
         return None
 
     try:
-        r1j['callbacks'][0]['input'][0]['value'] = input('Username: ')     # should locate 'IDToken1'
+        if os.path.isfile(config_user_file):
+            userfile = open(config_user_file, 'r') 
+            temp = userfile.readline()
+            sys.stdout.write("Using username: " + temp)
+            r1j['callbacks'][0]['input'][0]['value'] = temp
+        else:
+            r1j['callbacks'][0]['input'][0]['value'] = input('Username: ')     # should locate 'IDToken1'
         r1j['callbacks'][1]['input'][0]['value'] = input('MFA token: ')      # should locate 'IDToken2'
         r1j['callbacks'][2]['input'][0]['value'] = getpass.getpass('Password: ')   # should locate 'IDToken3'
         if debug:
