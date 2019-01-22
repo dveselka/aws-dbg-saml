@@ -98,8 +98,8 @@ def auth_live():
     try:
         if os.path.isfile(config_user_file):
             userfile = open(config_user_file, 'r') 
-            temp = userfile.readline()
-            sys.stdout.write("Using username: " + temp)
+            temp = userfile.readline().strip()
+            print("Using username: " + temp)
             r1j['callbacks'][0]['input'][0]['value'] = temp
         else:
             r1j['callbacks'][0]['input'][0]['value'] = input('Username: ')     # should locate 'IDToken1'
