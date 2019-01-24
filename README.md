@@ -55,3 +55,12 @@ Example configuration
     "322652345670": "production"
 }
 ```
+
+# User configuration
+You can configure a default user. You need to create a file `~/.aws/user` containing just the username.
+
+Example of `~/.aws/user` for username `ab123`
+
+```
+ab123
+```
