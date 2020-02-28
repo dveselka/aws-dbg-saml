@@ -17,8 +17,25 @@ aws configure
 aws s3 ls s3://rdf-install
 ```
 
+```
+[dave@localhost ~]$ find .aws
+.aws/config
+.aws/credentials
+```
 
+```
+ more .aws/config 
+[default]
+region = eu-central-1
+```
 
+```
+ore .aws/credentials 
+[default]
+aws_access_key_id = VALUE
+aws_secret_access_key = VALUE
+aws_session_token = VALUE
+```
 
 
 
