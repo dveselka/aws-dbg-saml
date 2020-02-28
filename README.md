@@ -1,3 +1,42 @@
+New version ./authOpenAM.py
+
+Install packages on Fedora
+
+
+```
+sudo dnf install python-boto3
+sudo dnf install python-beautifulsoup4
+sudo dnf install python-tkinter
+```
+
+Run 
+
+```
+python ./authOpenAM.py
+aws configure
+aws s3 ls s3://rdf-install
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Key Generator for AWS CLI Access
 
 Language: Python 2.7
